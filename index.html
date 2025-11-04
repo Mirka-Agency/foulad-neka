@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>برنامه‌ریز ماژولار ساختمان</title>
+		<!-- Load and Configure Tailwind CSS (Corrected CDN) -->
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script>
+			// --- Tailwind Configuration with Dark Mode Support ---
+			// The inline configuration script is placed immediately after the CDN load
+			// to ensure the 'tailwind' object is defined and configured correctly.
+			tailwind.config = {
+				darkMode: "class", // فعال‌سازی دارک مد با کلاس 'dark' روی عنصر <html>
+				theme: {
+					extend: {
+						fontFamily: {
+							sans: ["Inter", "Tahoma", "sans-serif"],
+						},
+					},
+				},
+			};
+		</script>
+		<!-- Load Three.js for 3D visualization -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+		<!-- Load OrbitControls for 3D camera control -->
+		<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+		<style>
+			/* Custom styles for full screen */
+			body,
+			html {
+				height: 100%;
+				margin: 0;
+				overflow: hidden;
+				font-family: "Inter", Tahoma, sans-serif;
+				transition: background-color 0.3s ease; /* Smooth transition for body background */
+			}
+			#app {
+				display: flex;
+				height: 100%;
+				flex-direction: row-reverse;
+				transition: color 0.3s ease; /* Smooth transition for text color */
+			}
+			#sidebar {
+				width: 300px;
+				min-width: 300px;
+				box-shadow: -4px 0 10px rgba(0, 0, 0, 0.4);
+				padding: 1rem;
+				overflow-y: auto;
+				direction: rtl;
+				text-align: right;
+				transition: background-color 0.3s ease, color 0.3s ease;
+			}
+			#canvasContainer {
+				flex-grow: 1;
+				position: relative;
+			}
+			canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				cursor: default;
+			}
+			canvas.draggable {
+				cursor: grab;
+			}
+			canvas.placing {
+				cursor: crosshair;
+			}
+			.module-item {
+				transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s,
+					background-color 0.3s;
+				cursor: pointer;
+				user-select: none;
+				border-right: 4px solid transparent;
+				border-left: none;
+			}
+			.module-item:hover {
+				box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+				transform: translateY(-2px);
+			}
+			/* Active state for module items (using Tailwind classes for background where possible) */
+			.module-item.active {
+				border-right-color: #3b82f6; /* Blue accent for active selection (RTL) */
+				/* Default: Light theme active background */
+				background-color: #d1d5db !important;
+			}
+			/* Dark mode override for active state */
+			html.dark .module-item.active {
+				background-color: #4b5563 !important;
+			}
+			.module-item:active {
+				transform: scale(0.98);
+			}
+			/* Message Box */
+			#messageBox {
+				/* ... (style remains mostly the same) */
+				position: absolute;
+				top: 20px;
+				left: 50%;
+				transform: translateX(-50%);
+				padding: 12px 24px;
+				color: white;
+				border-radius: 12px;
+				z-index: 1000;
+				opacity: 0;
+				transition: opacity 0.4s ease-out, top 0.4s ease-out;
+				direction: rtl;
+				box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+				font-weight: 600;
+			}
+			#messageBox.show {
+				opacity: 1;
+				top: 30px;
+			}
+
+			/* Tooltip */
+			#objectTooltip {
+				/* ... (style remains mostly the same) */
+				position: absolute;
+				z-index: 999;
+				padding: 0.75rem 1rem;
+				border-radius: 10px;
+				box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+				transform: translate(-50%, -100%);
+				display: none;
+				white-space: nowrap;
+				direction: rtl;
+				border: 2px solid #3498db;
+				font-size: 0.9rem;
+
+				/* Theme responsive classes */
+				background-color: #2c3e50; /* Darker background for better contrast (fixed dark for visibility) */
+				color: #ecf0f1;
+			}
+		</style>
+	</head>
+	<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
+		<div id="app" class="text-gray-900 dark:text-gray-100">
+			<!-- Sidebar: Component Catalog and Cost Calculator -->
+			<div
+				id="sidebar"
+				class="bg-white dark:bg-gray-800 transition-colors duration-500"
+			>
+				<!-- Theme Toggle and Header -->
+				<div
+					class="flex justify-between items-center mb-6 border-b pb-2 border-gray-300 dark:border-gray-700"
+				>
+					<h1
+						class="text-2xl font-bold text-blue-600 dark:text-blue-400"
+					>
+						برنامه‌ریز ماژولار
+					</h1>
+					<button
+						id="themeToggleBtn"
+						class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:ring-2 ring-blue-300 dark:ring-blue-500 transition-all duration-300"
+					>
+						<span id="themeIcon" class="text-xl"></span>
+					</button>
+				</div>
+
+				<!-- Cost and Stats Display -->
+				<div
+					id="calculator"
+					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
+				>
+					<h2
+						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
+					>
+						معیارهای پروژه
+					</h2>
+					<p class="text-sm">
+						تعداد کل ماژول‌ها:
+						<span
+							id="moduleCount"
+							class="font-bold text-lg text-gray-900 dark:text-white"
+							>0</span
+						>
+					</p>
+					<div
+						class="mt-4 pt-3 border-t border-gray-300 dark:border-gray-600"
+					>
+						<p
+							class="text-lg font-bold text-green-600 dark:text-green-400"
+						>
+							کل هزینه:
+						</p>
+						<p
+							class="text-3xl font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							<span id="totalCost">0</span>$
+						</p>
+					</div>
+				</div>
+
+				<!-- Level Controls -->
+				<div
+					id="levelControls"
+					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
+				>
+					<h2
+						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
+					>
+						کنترل سطح
+					</h2>
+					<div class="flex justify-between items-center">
+						<button
+							id="levelDownBtn"
+							class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+						>
+							پایین (سطح ↓)
+						</button>
+						<p
+							class="text-xl font-extrabold text-gray-900 dark:text-white"
+						>
+							سطح
+							<span id="levelIndicator" class="text-3xl">۱</span>
+						</p>
+						<button
+							id="levelUpBtn"
+							class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+						>
+							بالا (سطح ↑)
+						</button>
+					</div>
+					<p
+						class="text-xs mt-2 text-gray-500 dark:text-gray-400 text-center"
+					>
+						(ماژول‌های سطوح دیگر به صورت کم‌رنگ دیده می‌شوند.)
+					</p>
+				</div>
+
+				<h2
+					class="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-300"
+				>
+					ماژول‌های سازه
+					<span class="text-sm text-gray-500 dark:text-gray-400"
+						>(برای انتخاب کلیک کنید)</span
+					>
+				</h2>
+
+				<!-- Module Catalog -->
+				<div id="moduleCatalog" class="space-y-3">
+					<!-- Items will be populated here by JS -->
+				</div>
+
+				<!-- LLM Feature: Design Review -->
+				<div
+					class="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700"
+				>
+					<button
+						id="aiReviewBtn"
+						class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						<span class="text-xl ml-2">✨</span> دریافت پیشنهادهای
+						طراحی
+					</button>
+					<div
+						id="aiResultArea"
+						class="mt-4 p-3 bg-gray-200 dark:bg-gray-700 rounded-lg hidden border border-gray-300 dark:border-gray-600"
+					>
+						<h3
+							class="font-bold text-blue-600 dark:text-blue-300 mb-2"
+						>
+							بررسی هوش مصنوعی:
+						</h3>
+						<p
+							id="aiResultText"
+							class="text-sm text-gray-800 dark:text-white whitespace-pre-wrap"
+							dir="rtl"
+						></p>
+						<div
+							id="aiSources"
+							class="mt-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-400 dark:border-gray-600 pt-1"
+						></div>
+						<p
+							id="aiLoading"
+							class="text-center text-sm text-yellow-600 dark:text-yellow-400 hidden mt-2"
+						>
+							در حال تولید پیشنهادها...
+						</p>
+					</div>
+				</div>
+
+				<div
+					class="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700"
+				>
+					<button
+						id="resetBtn"
+						class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+					>
+						بازنشانی نقشه
+					</button>
+					<p
+						class="text-xs mt-2 text-gray-500 dark:text-gray-400 text-center"
+					>
+						(از ماوس برای کشیدن/چرخاندن نمای ۳بعدی استفاده کنید.
+						برای انتخاب، کلیک کنید و برای جابجایی بکشید.)
+					</p>
+				</div>
+			</div>
+
+			<!-- Main Canvas Container for 3D View -->
+			<div id="canvasContainer">
+				<!-- Tooltip for selected object controls -->
+				<div id="objectTooltip">
+					<div id="tooltipContent" class="font-semibold mb-2"></div>
+					<div class="flex space-x-2 space-x-reverse justify-center">
+						<button
+							id="rotateBtn"
+							class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md shadow-sm transition duration-150"
+						>
+							<span class="text-lg">🔄</span> چرخش
+						</button>
+						<button
+							id="deleteBtn"
+							class="text-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md shadow-sm transition duration-150"
+						>
+							<span class="text-lg">🗑️</span> حذف
+						</button>
+					</div>
+				</div>
+
+				<!-- Three.js Canvas will be appended here -->
+				<div id="messageBox"></div>
+			</div>
+		</div>
+
+		<script>
+			// --- Global Firebase Variables (Mandatory inclusion for environment compatibility) ---
+			const appId =
+				typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+			const firebaseConfig =
+				typeof __firebase_config !== "undefined"
+					? JSON.parse(__firebase_config)
+					: {};
+			const initialAuthToken =
+				typeof __initial_auth_token !== "undefined"
+					? __initial_auth_token
+					: null;
+
+			// --- Configuration and Data ---
+
+			const GRID_SIZE = 40;
+			const GRID_DIVISIONS = 10;
+			const GRID_CELL_SIZE = GRID_SIZE / GRID_DIVISIONS;
+			const WALL_HEIGHT = 3;
+			const LEVEL_HEIGHT = WALL_HEIGHT + 0.2;
+			const DEGREE_TO_RADIAN = Math.PI / 180;
+
+			const LEVEL_OPACITY = 1.0;
+			const GHOST_OPACITY = 0.2;
+
+			let currentLevel = 0;
+
+			const WALL_COLOR = 0xf5f5f5;
+
+			const MODULES = [
+				{
+					id: "floor",
+					name: "دال کف (۴×۴ متر)",
+					color: 0x6e788c,
+					cost: 1800,
+					dimensions: {
+						x: GRID_CELL_SIZE,
+						y: 0.2,
+						z: GRID_CELL_SIZE,
+					},
+					isRotatable: false,
+				},
+				{
+					id: "wall",
+					name: "دیوار استاندارد (۴ متر)",
+					color: WALL_COLOR,
+					cost: 1200,
+					dimensions: { x: GRID_CELL_SIZE, y: WALL_HEIGHT, z: 0.2 },
+					isRotatable: true,
+				},
+				{
+					id: "wall_door",
+					name: "دیوار با درب (۴ متر)",
+					color: 0xa0a0a0,
+					cost: 1300,
+					dimensions: { x: GRID_CELL_SIZE, y: WALL_HEIGHT, z: 0.2 },
+					icon: "🚪",
+					isRotatable: true,
+				},
+				{
+					id: "wall_window",
+					name: "دیوار با پنجره (۴ متر)",
+					color: 0xa0a0a0,
+					cost: 1500,
+					dimensions: { x: GRID_CELL_SIZE, y: WALL_HEIGHT, z: 0.2 },
+					icon: "🪟",
+					isRotatable: true,
+				},
+				{
+					id: "staircase",
+					name: "واحد پله",
+					color: 0x8b5cf6,
+					cost: 3000,
+					dimensions: {
+						x: GRID_CELL_SIZE,
+						y: WALL_HEIGHT,
+						z: GRID_CELL_SIZE / 2,
+					},
+					icon: "🪜",
+					isRotatable: true,
+				},
+				{
+					id: "roof",
+					name: "بخش سقف (۴×۴ متر)",
+					color: 0xef4444,
+					cost: 2500,
+					dimensions: {
+						x: GRID_CELL_SIZE,
+						y: 0.3,
+						z: GRID_CELL_SIZE,
+					},
+					icon: "🏠",
+					isRotatable: false,
+				},
+			];
+
+			let selectedModuleId = null;
+			let ghostMesh = null;
+			let currentGhostRotationY = 0;
+			let placedObjects = [];
+			let totalCost = 0;
+			let selectedMesh = null;
+
+			// --- Interaction State Variables ---
+			let clickStartX = 0;
+			let clickStartY = 0;
+			const CLICK_THRESHOLD = 5;
+			let mouseDownObject = null;
+			let isActivelyDragging = false;
+
+			// --- THREE.JS Setup ---
+			let scene, camera, renderer, controls, raycaster;
+			const pointer = new THREE.Vector2();
+			let plane, gridHelper;
+
+			// --- Theme Constants for Three.js ---
+			const LIGHT_BG_COLOR = 0xf3f4f6; // gray-100
+			const DARK_BG_COLOR = 0x111827; // very dark blue/black
+
+			const LIGHT_GRID_MAIN = 0x4f46e5; // Indigo
+			const LIGHT_GRID_SUB = 0x9ca3af; // gray-400
+
+			const DARK_GRID_MAIN = 0x60a5fa; // Blue-400
+			const DARK_GRID_SUB = 0x374151; // gray-700
+
+			window.onload = function () {
+				init3D();
+				initTheme(); // Must be called after init3D to set initial scene colors
+				animate();
+				setupUI();
+				updateCostDisplay();
+
+				showMessage(
+					"سطوحی که در نمای فعلی نیستند، اکنون به صورت کم‌رنگ قابل مشاهده‌اند!",
+					false
+				);
+			};
+
+			/**
+			 * Updates the Three.js scene background and grid color based on the current theme.
+			 */
+			function updateSceneTheme(isDark) {
+				const bgColor = isDark ? DARK_BG_COLOR : LIGHT_BG_COLOR;
+				const gridMainColor = isDark ? DARK_GRID_MAIN : LIGHT_GRID_MAIN;
+				const gridSubColor = isDark ? DARK_GRID_SUB : LIGHT_GRID_SUB;
+
+				if (scene) {
+					scene.background = new THREE.Color(bgColor);
+				}
+
+				// Recreate GridHelper to easily change both colors
+				if (gridHelper) {
+					scene.remove(gridHelper);
+					gridHelper.geometry.dispose();
+					gridHelper.material.dispose();
+
+					gridHelper = new THREE.GridHelper(
+						GRID_SIZE,
+						GRID_DIVISIONS,
+						gridMainColor,
+						gridSubColor
+					);
+					scene.add(gridHelper);
+					updateGridPlane();
+				}
+			}
+
+			function initTheme() {
+				const root = document.documentElement;
+				const userTheme = localStorage.getItem("theme");
+				// Check system preference only if no user preference is set
+				const systemDark = window.matchMedia(
+					"(prefers-color-scheme: dark)"
+				).matches;
+
+				let isDark = false;
+
+				if (userTheme === "dark" || (!userTheme && systemDark)) {
+					root.classList.add("dark");
+					isDark = true;
+				} else {
+					root.classList.remove("dark");
+					isDark = false;
+				}
+
+				// Set initial icon and scene colors
+				const icon = document.getElementById("themeIcon");
+				if (icon) {
+					icon.textContent = isDark ? "🌙" : "☀️";
+				}
+
+				if (scene) {
+					// scene exists because initTheme is called after init3D
+					updateSceneTheme(isDark);
+				}
+			}
+
+			function toggleTheme() {
+				const root = document.documentElement;
+				const isDark = root.classList.toggle("dark");
+
+				if (isDark) {
+					localStorage.setItem("theme", "dark");
+					document.getElementById("themeIcon").textContent = "🌙";
+				} else {
+					localStorage.setItem("theme", "light");
+					document.getElementById("themeIcon").textContent = "☀️";
+				}
+
+				updateSceneTheme(isDark);
+				hideTooltip();
+			}
+
+			function init3D() {
+				const container = document.getElementById("canvasContainer");
+				const width = container.clientWidth;
+				const height = container.clientHeight;
+
+				// 1. Scene - Initialized to a default color, overridden by initTheme
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color(DARK_BG_COLOR); // Default dark
+
+				// 2. Camera
+				camera = new THREE.PerspectiveCamera(
+					50,
+					width / height,
+					0.1,
+					1000
+				);
+				camera.position.set(20, 30, 25);
+				camera.lookAt(0, 0, 0);
+
+				// 3. Renderer
+				renderer = new THREE.WebGLRenderer({ antialias: true });
+				renderer.setSize(width, height);
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				renderer.domElement.id = "mainCanvas";
+				container.appendChild(renderer.domElement);
+
+				// 4. Controls
+				controls = new THREE.OrbitControls(camera, renderer.domElement);
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.05;
+				controls.screenSpacePanning = false;
+				controls.minDistance = 10;
+				controls.maxDistance = 100;
+
+				// 5. Lighting
+				const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+				scene.add(ambientLight);
+
+				const directionalLight = new THREE.DirectionalLight(
+					0xffffff,
+					1.2
+				);
+				directionalLight.position.set(15, 40, 10);
+				directionalLight.castShadow = true;
+				directionalLight.shadow.mapSize.width = 2048;
+				directionalLight.shadow.mapSize.height = 2048;
+				directionalLight.shadow.camera.near = 0.5;
+				directionalLight.shadow.camera.far = 100;
+				directionalLight.shadow.camera.left = -50;
+				directionalLight.shadow.camera.right = 50;
+				directionalLight.shadow.camera.top = 50;
+				directionalLight.shadow.camera.bottom = -50;
+				scene.add(directionalLight);
+
+				// 6. Grid Helper - Initialized, colors updated by initTheme()
+				gridHelper = new THREE.GridHelper(
+					GRID_SIZE,
+					GRID_DIVISIONS,
+					DARK_GRID_MAIN,
+					DARK_GRID_SUB
+				);
+				scene.add(gridHelper);
+
+				// 7. Invisible Raycasting Plane
+				const planeGeometry = new THREE.PlaneGeometry(
+					GRID_SIZE,
+					GRID_SIZE
+				);
+				planeGeometry.rotateX(-Math.PI / 2);
+				plane = new THREE.Mesh(
+					planeGeometry,
+					new THREE.MeshBasicMaterial({ visible: false })
+				);
+				scene.add(plane);
+
+				updateGridPlane();
+
+				// 8. Raycaster
+				raycaster = new THREE.Raycaster();
+
+				// 9. Event Listeners
+				renderer.domElement.addEventListener(
+					"pointerdown",
+					onPointerDown
+				);
+				renderer.domElement.addEventListener("pointerup", onPointerUp);
+				renderer.domElement.addEventListener(
+					"pointermove",
+					onPointerMove
+				);
+				renderer.domElement.addEventListener(
+					"contextmenu",
+					onRightClickRotate
+				);
+				window.addEventListener("keydown", onKeyDown);
+				window.addEventListener("resize", onWindowResize);
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+				controls.update();
+				updateTooltipPosition();
+				renderer.render(scene, camera);
+			}
+
+			function onWindowResize() {
+				const container = document.getElementById("canvasContainer");
+				camera.aspect = container.clientWidth / container.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(container.clientWidth, container.clientHeight);
+			}
+
+			// --- Utility Functions ---
+
+			function showMessage(text, isError = false) {
+				const box = document.getElementById("messageBox");
+				box.textContent = text;
+				box.className = "show";
+
+				if (isError) {
+					box.style.backgroundColor = "#ef4444";
+				} else {
+					box.style.backgroundColor = "#10b981";
+				}
+
+				setTimeout(() => {
+					box.classList.remove("show");
+				}, 3000);
+			}
+
+			function updateCostDisplay() {
+				document.getElementById("moduleCount").textContent =
+					placedObjects.length;
+				document.getElementById("totalCost").textContent =
+					totalCost.toLocaleString("fa-IR", {
+						minimumFractionDigits: 0,
+					});
+			}
+
+			function snapToFullCell(coordinate) {
+				return Math.round(coordinate / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+			}
+
+			function snapToHalfCell(coordinate) {
+				const halfCell = GRID_CELL_SIZE / 2;
+				return Math.round(coordinate / halfCell) * halfCell;
+			}
+
+			/**
+			 * Recursively sets the opacity for an object and its children meshes.
+			 */
+			function setOpacity(object, opacity) {
+				object.traverse((child) => {
+					if (child.isMesh && child.material) {
+						const materials = Array.isArray(child.material)
+							? child.material
+							: [child.material];
+
+						materials.forEach((material) => {
+							material.opacity = opacity;
+							material.transparent = opacity < LEVEL_OPACITY;
+							material.needsUpdate = true;
+						});
+					}
+				});
+			}
+
+			// --- Level Management ---
+
+			function updateGridPlane() {
+				const gridLevelHeight = currentLevel * LEVEL_HEIGHT;
+
+				// 1. Position the grid helper and raycasting plane
+				plane.position.y = gridLevelHeight + 0.01;
+				gridHelper.position.y = gridLevelHeight;
+
+				// 2. Update opacity and visibility of placed objects
+				placedObjects.forEach((mesh) => {
+					const objectLevel = mesh.userData.level || 0;
+
+					const isStairLeadingUp =
+						mesh.userData.id === "staircase" &&
+						objectLevel === currentLevel + 1;
+
+					if (objectLevel === currentLevel || isStairLeadingUp) {
+						setOpacity(mesh, LEVEL_OPACITY);
+					} else {
+						setOpacity(mesh, GHOST_OPACITY);
+					}
+
+					mesh.visible = true;
+				});
+
+				// 3. Hide the tooltip if it's pointing to a ghosted object
+				if (selectedMesh) {
+					const selectedObjectLevel =
+						selectedMesh.userData.level || 0;
+					const isSelectedStairLeadingUp =
+						selectedMesh.userData.id === "staircase" &&
+						selectedObjectLevel === currentLevel + 1;
+
+					if (
+						selectedObjectLevel !== currentLevel &&
+						!isSelectedStairLeadingUp
+					) {
+						hideTooltip();
+					}
+				}
+
+				// 4. Update UI
+				document.getElementById("levelIndicator").textContent =
+					currentLevel + 1;
+			}
+
+			function changeLevel(delta) {
+				const newLevel = Math.max(0, currentLevel + delta);
+				const MAX_LEVEL = 4;
+
+				if (newLevel !== currentLevel && newLevel <= MAX_LEVEL) {
+					currentLevel = newLevel;
+					updateGridPlane();
+					if (ghostMesh) destroyGhostMesh();
+					showMessage(`تغییر به سطح ${currentLevel + 1}`);
+				} else if (newLevel === 0 && delta < 0) {
+					showMessage(`شما در حال حاضر در طبقه همکف هستید (سطح ۱).`);
+				} else if (newLevel > MAX_LEVEL) {
+					showMessage(`حداکثر سطح ${MAX_LEVEL + 1} رسیده است.`);
+				}
+			}
+
+			// --- Custom Geometries (Updated to accept optional material) ---
+
+			/**
+			 * Creates a wall with a door or window opening using discrete frame components.
+			 */
+			function createWallWithOpening(
+				moduleConfig,
+				position,
+				isDoor,
+				overrideMaterial = null
+			) {
+				const wallDims = moduleConfig.dimensions;
+				const wallThickness = wallDims.z;
+				const wallLength = wallDims.x;
+				const wallHeight = wallDims.y;
+
+				const levelOffset = position.y;
+
+				// --- Materials ---
+				const wallMaterial =
+					overrideMaterial ||
+					new THREE.MeshPhongMaterial({
+						color: WALL_COLOR,
+						specular: 0x444444,
+						shininess: 30,
+						transparent: true,
+						opacity: LEVEL_OPACITY,
+					});
+
+				const glassMaterial =
+					overrideMaterial ||
+					new THREE.MeshPhongMaterial({
+						color: 0x3b82f6,
+						opacity: 0.35,
+						transparent: true,
+						shininess: 80,
+						side: THREE.DoubleSide,
+					});
+
+				const doorMaterial =
+					overrideMaterial ||
+					new THREE.MeshPhongMaterial({
+						color: 0x8b4513,
+						opacity: 1.0,
+						transparent: false,
+						shininess: 10,
+					});
+
+				const wallGroup = new THREE.Group();
+
+				// --- Dimensions ---
+				const openingWidth = wallLength * (isDoor ? 0.5 : 0.6);
+				const postWidth = (wallLength - openingWidth) / 2;
+				const doorHeight = wallHeight * 0.85;
+				const windowHeight = wallHeight * 0.5;
+				const paneYHeight = isDoor ? doorHeight : windowHeight;
+				const topGap = wallHeight - paneYHeight;
+				const lintelHeight = isDoor ? topGap : topGap * 0.5;
+
+				// 1. Top Lintel/Beam
+				const lintelGeom = new THREE.BoxGeometry(
+					wallLength,
+					lintelHeight,
+					wallThickness
+				);
+				const lintelMesh = new THREE.Mesh(lintelGeom, wallMaterial);
+				lintelMesh.position.y = wallHeight / 2 - lintelHeight / 2;
+				wallGroup.add(lintelMesh);
+
+				// 2. Bottom Sill (Only for Window)
+				let sillHeight = 0;
+				if (!isDoor) {
+					const bottomGap = wallHeight - (lintelHeight + paneYHeight);
+					sillHeight = bottomGap;
+					const sillGeom = new THREE.BoxGeometry(
+						wallLength,
+						sillHeight,
+						wallThickness
+					);
+					const sillMesh = new THREE.Mesh(sillGeom, wallMaterial);
+					sillMesh.position.y = -wallHeight / 2 + sillHeight / 2;
+					wallGroup.add(sillMesh);
+				}
+
+				// 3. Side Posts (Jambs)
+				if (postWidth > 0.1) {
+					const sidePostGeom = new THREE.BoxGeometry(
+						postWidth,
+						wallHeight,
+						wallThickness
+					);
+
+					const leftPostMesh = new THREE.Mesh(
+						sidePostGeom,
+						wallMaterial
+					);
+					leftPostMesh.position.x = -wallLength / 2 + postWidth / 2;
+					leftPostMesh.position.y = 0;
+					wallGroup.add(leftPostMesh);
+
+					const rightPostMesh = new THREE.Mesh(
+						sidePostGeom,
+						wallMaterial
+					);
+					rightPostMesh.position.x = wallLength / 2 - postWidth / 2;
+					rightPostMesh.position.y = 0;
+					wallGroup.add(rightPostMesh);
+				}
+
+				// 4. Infill Pane (Door or Window)
+				const paneYCenter = isDoor
+					? -wallHeight / 2 + paneYHeight / 2 + sillHeight
+					: (wallHeight - (lintelHeight + paneYHeight) - sillHeight) /
+					  2;
+
+				const paneThickness = wallThickness * 0.1;
+
+				if (isDoor) {
+					const doorPaneGeom = new THREE.BoxGeometry(
+						openingWidth,
+						paneYHeight,
+						paneThickness
+					);
+					const doorPaneMesh = new THREE.Mesh(
+						doorPaneGeom,
+						doorMaterial
+					);
+					doorPaneMesh.position.y = paneYCenter;
+					doorPaneMesh.position.z = 0;
+					wallGroup.add(doorPaneMesh);
+				} else {
+					const windowPaneGeom = new THREE.BoxGeometry(
+						openingWidth,
+						paneYHeight,
+						paneThickness
+					);
+					const windowPaneMesh = new THREE.Mesh(
+						windowPaneGeom,
+						glassMaterial
+					);
+					windowPaneMesh.position.y = paneYCenter;
+					windowPaneMesh.position.z = 0;
+					wallGroup.add(windowPaneMesh);
+				}
+
+				// --- 5. Final Group Configuration ---
+				wallGroup.position.set(
+					position.x,
+					wallHeight / 2 + levelOffset,
+					position.z
+				);
+
+				if (!overrideMaterial) {
+					wallGroup.userData = {
+						...moduleConfig,
+						isPlacedModule: true,
+						isRotatable: moduleConfig.isRotatable,
+						level: currentLevel,
+					};
+				}
+
+				wallGroup.children.forEach((child) => {
+					child.castShadow = true;
+					child.receiveShadow = true;
+				});
+
+				return wallGroup;
+			}
+
+			/**
+			 * Creates the staircase mesh.
+			 */
+			function createStairsMesh(
+				moduleConfig,
+				position,
+				overrideMaterial = null
+			) {
+				const group = new THREE.Group();
+				const length = moduleConfig.dimensions.x;
+				const height = moduleConfig.dimensions.y;
+				const depth = moduleConfig.dimensions.z;
+				const steps = 6;
+
+				const stepHeight = height / steps;
+				const stepDepth = length / steps;
+				const levelOffset = position.y;
+
+				const material =
+					overrideMaterial ||
+					new THREE.MeshPhongMaterial({
+						color: WALL_COLOR,
+						specular: 0x444444,
+						shininess: 30,
+						transparent: true,
+						opacity: LEVEL_OPACITY,
+					});
+
+				const groupCenterY = height / 2;
+
+				for (let i = 0; i < steps; i++) {
+					const stepGeom = new THREE.BoxGeometry(
+						stepDepth,
+						stepHeight,
+						depth
+					);
+					const stepMesh = new THREE.Mesh(stepGeom, material);
+
+					stepMesh.position.x =
+						-(length / 2) + i * stepDepth + stepDepth / 2;
+					stepMesh.position.y =
+						i * stepHeight + stepHeight / 2 - groupCenterY;
+					stepMesh.position.z = 0;
+
+					stepMesh.castShadow = true;
+					stepMesh.receiveShadow = true;
+					group.add(stepMesh);
+				}
+
+				group.position.set(
+					position.x,
+					height / 2 + levelOffset,
+					position.z
+				);
+
+				if (!overrideMaterial) {
+					group.userData = {
+						...moduleConfig,
+						isPlacedModule: true,
+						isRotatable: true,
+						level: currentLevel + 1,
+					};
+				}
+
+				return group;
+			}
+
+			// --- Ghost Mesh Logic ---
+
+			/**
+			 * Creates a translucent 'ghost' mesh for previewing placement.
+			 */
+			function createGhostMesh(moduleConfig) {
+				destroyGhostMesh();
+
+				currentGhostRotationY = 0;
+
+				const ghostMaterial = new THREE.MeshBasicMaterial({
+					color: 0x3b82f6,
+					opacity: 0.5,
+					transparent: true,
+					depthWrite: false,
+					side: THREE.DoubleSide,
+				});
+
+				let tempMesh;
+
+				const tempPosition = { x: 0, y: 0, z: 0 };
+
+				if (moduleConfig.id === "wall_window") {
+					tempMesh = createWallWithOpening(
+						moduleConfig,
+						tempPosition,
+						false,
+						ghostMaterial
+					);
+				} else if (moduleConfig.id === "wall_door") {
+					tempMesh = createWallWithOpening(
+						moduleConfig,
+						tempPosition,
+						true,
+						ghostMaterial
+					);
+				} else if (moduleConfig.id === "staircase") {
+					tempMesh = createStairsMesh(
+						moduleConfig,
+						tempPosition,
+						ghostMaterial
+					);
+				} else {
+					const geometry = new THREE.BoxGeometry(
+						moduleConfig.dimensions.x,
+						moduleConfig.dimensions.y,
+						moduleConfig.dimensions.z
+					);
+					tempMesh = new THREE.Mesh(geometry, ghostMaterial);
+				}
+
+				ghostMesh = tempMesh;
+
+				ghostMesh.userData = {
+					...moduleConfig,
+					isGhost: true,
+					level: currentLevel,
+				};
+
+				ghostMesh.renderOrder = 10;
+				scene.add(ghostMesh);
+
+				document.getElementById("mainCanvas").classList.add("placing");
+			}
+
+			function destroyGhostMesh() {
+				if (ghostMesh) {
+					scene.remove(ghostMesh);
+					if (ghostMesh.isGroup) {
+						ghostMesh.traverse((child) => {
+							if (child.isMesh) {
+								child.geometry?.dispose();
+								child.material?.dispose();
+							}
+						});
+					} else {
+						ghostMesh.geometry?.dispose();
+						ghostMesh.material?.dispose();
+					}
+					ghostMesh = null;
+				}
+
+				selectedModuleId = null;
+				currentGhostRotationY = 0;
+
+				document
+					.querySelectorAll(".module-item")
+					.forEach((i) => i.classList.remove("active"));
+				document
+					.getElementById("mainCanvas")
+					.classList.remove("placing");
+			}
+
+			/**
+			 * Updates the position of the ghost mesh based on raycasting intersection points.
+			 */
+			function updateGhostPosition(snappedX, snappedZ) {
+				if (!ghostMesh) return;
+
+				const moduleConfig = ghostMesh.userData;
+				const levelOffset = currentLevel * LEVEL_HEIGHT;
+				const moduleHeight = moduleConfig.dimensions.y;
+
+				let yBase = levelOffset;
+
+				if (moduleConfig.id === "roof") {
+					yBase = levelOffset + WALL_HEIGHT;
+				}
+
+				const yCenter = yBase + moduleHeight / 2;
+
+				ghostMesh.position.set(snappedX, yCenter, snappedZ);
+				ghostMesh.rotation.y = currentGhostRotationY;
+			}
+
+			// --- Mesh Creation (Dispatch Function for PLACEMENT) ---
+
+			function createModuleMesh(moduleConfig, position) {
+				const levelOffset = currentLevel * LEVEL_HEIGHT;
+				const moduleHeight = moduleConfig.dimensions.y;
+
+				if (moduleConfig.id === "wall_window") {
+					return createWallWithOpening(
+						moduleConfig,
+						{ x: position.x, y: levelOffset, z: position.z },
+						false
+					);
+				}
+				if (moduleConfig.id === "wall_door") {
+					return createWallWithOpening(
+						moduleConfig,
+						{ x: position.x, y: levelOffset, z: position.z },
+						true
+					);
+				}
+				if (moduleConfig.id === "staircase") {
+					return createStairsMesh(moduleConfig, {
+						x: position.x,
+						y: levelOffset,
+						z: position.z,
+					});
+				}
+
+				// --- Default Box Geometry (Floor, Standard Wall, Roof) ---
+
+				let yBase = levelOffset;
+
+				if (moduleConfig.id === "roof") {
+					yBase = levelOffset + WALL_HEIGHT;
+				}
+
+				const geometry = new THREE.BoxGeometry(
+					moduleConfig.dimensions.x,
+					moduleConfig.dimensions.y,
+					moduleConfig.dimensions.z
+				);
+
+				const materialColor =
+					moduleConfig.id === "wall"
+						? WALL_COLOR
+						: moduleConfig.color;
+
+				const material = new THREE.MeshPhongMaterial({
+					color: materialColor,
+					specular: 0x444444,
+					shininess: 30,
+					transparent: true,
+					opacity: LEVEL_OPACITY,
+				});
+
+				const mesh = new THREE.Mesh(geometry, material);
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+
+				const yOffset = moduleHeight / 2;
+
+				mesh.userData = {
+					...moduleConfig,
+					isPlacedModule: true,
+					level: currentLevel,
+				};
+
+				mesh.position.set(position.x, yOffset + yBase, position.z);
+
+				return mesh;
+			}
+
+			// --- Tooltip & Selection Logic ---
+
+			function findPlacedModule(intersectionObject) {
+				let moduleToSelect = intersectionObject;
+				while (
+					moduleToSelect &&
+					!moduleToSelect.userData.isPlacedModule &&
+					moduleToSelect.parent
+				) {
+					moduleToSelect = moduleToSelect.parent;
+				}
+				return moduleToSelect && moduleToSelect.userData.isPlacedModule
+					? moduleToSelect
+					: null;
+			}
+
+			function hideTooltip() {
+				document.getElementById("objectTooltip").style.display = "none";
+				if (selectedMesh) {
+					const objectsToUnglow = selectedMesh.isGroup
+						? selectedMesh.children
+						: [selectedMesh];
+					objectsToUnglow.forEach((obj) => {
+						obj.traverse((child) => {
+							if (child.isMesh && child.material) {
+								const materials = Array.isArray(child.material)
+									? child.material
+									: [child.material];
+								materials.forEach((material) => {
+									material.emissive.setHex(0x000000);
+								});
+							}
+						});
+					});
+				}
+				selectedMesh = null;
+				document
+					.getElementById("mainCanvas")
+					.classList.remove("draggable");
+			}
+
+			function showTooltip(mesh, showImmediately = false) {
+				const objectLevel = mesh.userData.level || 0;
+				const isStairLeadingUp =
+					mesh.userData.id === "staircase" &&
+					objectLevel === currentLevel + 1;
+
+				if (objectLevel !== currentLevel && !isStairLeadingUp) {
+					return;
+				}
+
+				if (selectedMesh && selectedMesh !== mesh) {
+					hideTooltip();
+				}
+				selectedMesh = mesh;
+
+				const objectsToGlow = selectedMesh.isGroup
+					? selectedMesh.children
+					: [selectedMesh];
+				objectsToGlow.forEach((obj) => {
+					obj.traverse((child) => {
+						if (child.isMesh && child.material) {
+							const materials = Array.isArray(child.material)
+								? child.material
+								: [child.material];
+							materials.forEach((material) => {
+								material.emissive.setHex(0x3b82f6);
+							});
+						}
+					});
+				});
+
+				if (showImmediately) {
+					document.getElementById(
+						"tooltipContent"
+					).textContent = `ماژول: ${mesh.userData.name} (سطح ${
+						mesh.userData.level + 1
+					})`;
+					const tooltip = document.getElementById("objectTooltip");
+
+					const rotateBtn = document.getElementById("rotateBtn");
+					if (mesh.userData.isRotatable) {
+						rotateBtn.classList.remove("hidden");
+					} else {
+						rotateBtn.classList.add("hidden");
+					}
+
+					tooltip.style.display = "block";
+					updateTooltipPosition();
+				}
+			}
+
+			function updateTooltipPosition() {
+				if (
+					!selectedMesh ||
+					document.getElementById("objectTooltip").style.display ===
+						"none"
+				)
+					return;
+
+				const worldPosition = new THREE.Vector3();
+				worldPosition.copy(selectedMesh.position);
+
+				if (selectedMesh.isGroup) {
+					const box = new THREE.Box3().setFromObject(selectedMesh);
+					worldPosition.y = box.max.y;
+				} else {
+					let objectHeight = selectedMesh.userData.dimensions.y || 0;
+					worldPosition.y =
+						selectedMesh.position.y + objectHeight / 2;
+				}
+
+				worldPosition.y += 0.5;
+
+				worldPosition.project(camera);
+
+				const container = document.getElementById("canvasContainer");
+				const rect = container.getBoundingClientRect();
+
+				const x = (worldPosition.x * 0.5 + 0.5) * rect.width;
+				const y = (worldPosition.y * -0.5 + 0.5) * rect.height;
+
+				const tooltip = document.getElementById("objectTooltip");
+				tooltip.style.left = `${x}px`;
+				tooltip.style.top = `${y}px`;
+			}
+
+			function onDeleteClick() {
+				if (!selectedMesh) return;
+
+				const cost = selectedMesh.userData.cost;
+				const name = selectedMesh.userData.name;
+
+				scene.remove(selectedMesh);
+				placedObjects = placedObjects.filter(
+					(obj) => obj !== selectedMesh
+				);
+
+				totalCost -= cost;
+				updateCostDisplay();
+
+				showMessage(`ماژول ${name} حذف شد. هزینه به‌روز شد.`, true);
+				hideTooltip();
+			}
+
+			function onRotateClick() {
+				if (!selectedMesh || !selectedMesh.userData.isRotatable) return;
+
+				selectedMesh.rotation.y += 90 * DEGREE_TO_RADIAN;
+
+				selectedMesh.rotation.y =
+					Math.round(
+						selectedMesh.rotation.y / (90 * DEGREE_TO_RADIAN)
+					) *
+					(90 * DEGREE_TO_RADIAN);
+
+				const isWallMesh = [
+					"wall",
+					"wall_door",
+					"wall_window",
+					"staircase",
+				].includes(selectedMesh.userData.id);
+				const snapFunction = isWallMesh
+					? snapToHalfCell
+					: snapToFullCell;
+
+				selectedMesh.position.x = snapFunction(selectedMesh.position.x);
+				selectedMesh.position.z = snapFunction(selectedMesh.position.z);
+
+				showMessage(
+					`ماژول ${selectedMesh.userData.name} ۹۰ درجه چرخانده شد.`,
+					false
+				);
+			}
+
+			// --- Interaction Logic (Click, Drag, Move) ---
+
+			function onPointerDown(event) {
+				clickStartX = event.clientX;
+				clickStartY = event.clientY;
+
+				if (ghostMesh) {
+					controls.enabled = false;
+					return;
+				}
+
+				const rect = renderer.domElement.getBoundingClientRect();
+				pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+				pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+				raycaster.setFromCamera(pointer, camera);
+
+				const placedIntersection = raycaster.intersectObjects(
+					placedObjects,
+					true
+				);
+
+				if (placedIntersection.length > 0) {
+					const moduleToSelect = findPlacedModule(
+						placedIntersection[0].object
+					);
+
+					const objectLevel = moduleToSelect.userData.level || 0;
+					const isStairLeadingUp =
+						moduleToSelect.userData.id === "staircase" &&
+						objectLevel === currentLevel + 1;
+
+					if (
+						moduleToSelect &&
+						(objectLevel === currentLevel || isStairLeadingUp)
+					) {
+						if (selectedMesh === moduleToSelect) {
+							hideTooltip();
+							mouseDownObject = null;
+						} else {
+							showTooltip(moduleToSelect, true);
+							mouseDownObject = moduleToSelect;
+						}
+
+						controls.enabled = false;
+						return;
+					}
+				}
+
+				controls.enabled = true;
+				mouseDownObject = null;
+				isActivelyDragging = false;
+			}
+
+			function onPointerMove(event) {
+				const canvas = document.getElementById("mainCanvas");
+
+				// 1. Ghost Mesh Placement Preview
+				if (ghostMesh) {
+					const rect = renderer.domElement.getBoundingClientRect();
+					pointer.x =
+						((event.clientX - rect.left) / rect.width) * 2 - 1;
+					pointer.y =
+						-((event.clientY - rect.top) / rect.height) * 2 + 1;
+					raycaster.setFromCamera(pointer, camera);
+
+					const intersects = raycaster.intersectObject(plane);
+
+					if (intersects.length > 0) {
+						const intersectPoint = intersects[0].point;
+
+						const isWallModule = [
+							"wall",
+							"wall_door",
+							"wall_window",
+							"staircase",
+						].includes(ghostMesh.userData.id);
+						const snapFunction = isWallModule
+							? snapToHalfCell
+							: snapToFullCell;
+
+						let snappedX = snapFunction(intersectPoint.x);
+						let snappedZ = snapFunction(intersectPoint.z);
+
+						if (
+							Math.abs(snappedX) <= GRID_SIZE / 2 &&
+							Math.abs(snappedZ) <= GRID_SIZE / 2
+						) {
+							updateGhostPosition(snappedX, snappedZ);
+						}
+					}
+					return;
+				}
+
+				// 2. Existing Object Drag Logic
+				if (!mouseDownObject) {
+					return;
+				}
+
+				const dx = event.clientX - clickStartX;
+				const dy = event.clientY - clickStartY;
+
+				if (
+					!isActivelyDragging &&
+					(Math.abs(dx) > CLICK_THRESHOLD ||
+						Math.abs(dy) > CLICK_THRESHOLD)
+				) {
+					isActivelyDragging = true;
+				}
+
+				if (isActivelyDragging) {
+					const rect = renderer.domElement.getBoundingClientRect();
+					pointer.x =
+						((event.clientX - rect.left) / rect.width) * 2 - 1;
+					pointer.y =
+						-((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+					raycaster.setFromCamera(pointer, camera);
+
+					const intersects = raycaster.intersectObject(plane);
+
+					if (intersects.length > 0) {
+						const intersectPoint = intersects[0].point;
+						canvas.classList.add("draggable");
+
+						const isWallModule = [
+							"wall",
+							"wall_door",
+							"wall_window",
+							"staircase",
+						].includes(mouseDownObject.userData.id);
+						const snapFunction = isWallModule
+							? snapToHalfCell
+							: snapToFullCell;
+
+						const snappedX = snapFunction(intersectPoint.x);
+						const snappedZ = snapFunction(intersectPoint.z);
+
+						if (
+							Math.abs(snappedX) <= GRID_SIZE / 2 &&
+							Math.abs(snappedZ) <= GRID_SIZE / 2
+						) {
+							mouseDownObject.position.x = snappedX;
+							mouseDownObject.position.z = snappedZ;
+							updateTooltipPosition();
+						}
+					}
+				}
+			}
+
+			function onPointerUp(event) {
+				controls.enabled = true;
+				document
+					.getElementById("mainCanvas")
+					.classList.remove("draggable");
+
+				// 2. Handle GHOST PLACEMENT
+				if (ghostMesh && event.button === 0) {
+					const moduleConfig = ghostMesh.userData;
+					const currentPosition = ghostMesh.position;
+
+					const newMesh = createModuleMesh(moduleConfig, {
+						x: currentPosition.x,
+						y: 0,
+						z: currentPosition.z,
+					});
+					newMesh.rotation.y = ghostMesh.rotation.y;
+
+					scene.add(newMesh);
+					placedObjects.push(newMesh);
+					totalCost += moduleConfig.cost;
+					updateCostDisplay();
+					updateGridPlane();
+
+					showMessage(
+						`ماژول ${moduleConfig.name} در سطح ${
+							currentLevel + 1
+						} قرار داده شد! هزینه: ${moduleConfig.cost.toLocaleString(
+							"fa-IR"
+						)}$`,
+						false
+					);
+
+					destroyGhostMesh();
+					return;
+				}
+
+				// 3. Handle object interaction
+				if (mouseDownObject) {
+					if (isActivelyDragging) {
+						showMessage(
+							`ماژول ${mouseDownObject.userData.name} به موقعیت جدید منتقل شد.`,
+							false
+						);
+					}
+
+					mouseDownObject = null;
+					isActivelyDragging = false;
+					return;
+				}
+
+				// 4. Deselect
+				const dx = event.clientX - clickStartX;
+				const dy = event.clientY - clickStartY;
+				const distanceMoved = Math.sqrt(dx * dx + dy * dy);
+
+				if (selectedMesh && distanceMoved < CLICK_THRESHOLD) {
+					hideTooltip();
+				}
+
+				isActivelyDragging = false;
+			}
+
+			// --- Key and Mouse Handlers for Placement Mode ---
+
+			function onRightClickRotate(event) {
+				if (ghostMesh) {
+					event.preventDefault();
+
+					currentGhostRotationY += 90 * DEGREE_TO_RADIAN;
+					currentGhostRotationY =
+						Math.round(
+							currentGhostRotationY / (90 * DEGREE_TO_RADIAN)
+						) *
+						(90 * DEGREE_TO_RADIAN);
+
+					ghostMesh.rotation.y = currentGhostRotationY;
+					showMessage("ماژول پیش‌نمایش ۹۰ درجه چرخانده شد.", false);
+				}
+			}
+
+			function onKeyDown(event) {
+				if (event.key === "Escape" || event.key === "Esc") {
+					if (ghostMesh) {
+						destroyGhostMesh();
+						showMessage("قرار دادن ماژول لغو شد.", true);
+					} else if (selectedMesh) {
+						hideTooltip();
+						showMessage("انتخاب شی موجود لغو شد.", true);
+					}
+				}
+			}
+
+			// --- LLM Integration (Gemini API) ---
+
+			const API_KEY = "";
+			const API_URL =
+				"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+
+			function getProjectSummaryForLLM() {
+				const counts = placedObjects.reduce((acc, obj) => {
+					const id = obj.userData.id;
+					acc[id] = (acc[id] || 0) + 1;
+					return acc;
+				}, {});
+
+				let summary = `طرح فعلی در سطح ${
+					currentLevel + 1
+				} با کل هزینه ${totalCost.toLocaleString(
+					"fa-IR"
+				)} دلار است و شامل ماژول‌های فولادی زیر است:\n`;
+
+				Object.keys(counts).forEach((id) => {
+					const module = MODULES.find((m) => m.id === id);
+					if (module) {
+						summary += `- ${counts[id]} عدد ${
+							module.name
+						} (هزینه واحد: ${module.cost.toLocaleString(
+							"fa-IR"
+						)}$)\n`;
+					}
+				});
+
+				return summary;
+			}
+
+			async function exponentialBackoffFetch(
+				url,
+				options,
+				maxRetries = 5,
+				delay = 1000
+			) {
+				for (let i = 0; i < maxRetries; i++) {
+					try {
+						const response = await fetch(url, options);
+						if (response.status !== 429) {
+							return response;
+						}
+						await new Promise((resolve) =>
+							setTimeout(resolve, delay)
+						);
+						delay *= 2;
+					} catch (error) {
+						await new Promise((resolve) =>
+							setTimeout(resolve, delay)
+						);
+						delay *= 2;
+					}
+				}
+				throw new Error("API request failed after multiple retries.");
+			}
+
+			async function getDesignSuggestion() {
+				const aiReviewBtn = document.getElementById("aiReviewBtn");
+				const aiResultArea = document.getElementById("aiResultArea");
+				const aiResultText = document.getElementById("aiResultText");
+				const aiSources = document.getElementById("aiSources");
+				const aiLoading = document.getElementById("aiLoading");
+
+				if (placedObjects.length === 0) {
+					showMessage(
+						"لطفاً قبل از درخواست بررسی هوش مصنوعی، چند ماژول را روی شبکه قرار دهید.",
+						true
+					);
+					return;
+				}
+
+				aiResultArea.classList.remove("hidden");
+				aiResultText.textContent = "";
+				aiSources.textContent = "";
+				aiLoading.classList.remove("hidden");
+				aiReviewBtn.disabled = true;
+
+				try {
+					const projectSummary = getProjectSummaryForLLM();
+					const systemPrompt =
+						"Act as a highly experienced, cost-conscious structural engineer specializing in modular steel construction. Analyze the provided list of modular components and the total cost. Provide a concise, professional analysis in a single paragraph, focusing on design efficiency, potential cost-saving opportunities, and structural best practices for a modular steel building. **Respond entirely in Farsi (Persian).** Do not use markdown headers or lists.";
+
+					const userQuery = `طرح سازه فولادی ماژولار زیر را تجزیه و تحلیل کنید:\n\n${projectSummary}`;
+
+					const payload = {
+						contents: [{ parts: [{ text: userQuery }] }],
+						tools: [{ google_search: {} }],
+						systemInstruction: { parts: [{ text: systemPrompt }] },
+					};
+
+					const response = await exponentialBackoffFetch(
+						`${API_URL}?key=${API_KEY}`,
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(payload),
+						}
+					);
+
+					const result = await response.json();
+					const candidate = result.candidates?.[0];
+
+					if (candidate && candidate.content?.parts?.[0]?.text) {
+						const text = candidate.content.parts[0].text;
+						aiResultText.textContent = text;
+
+						let sourcesHtml = "منابع: ";
+						const groundingMetadata = candidate.groundingMetadata;
+						if (
+							groundingMetadata &&
+							groundingMetadata.groundingAttributions
+						) {
+							const sources =
+								groundingMetadata.groundingAttributions
+									.map((attr) => {
+										if (attr.web?.uri && attr.web?.title) {
+											return `<a href="${attr.web.uri}" target="_blank" class="text-blue-400 hover:text-blue-300 underline">${attr.web.title}</a>`;
+										}
+										return null;
+									})
+									.filter((s) => s !== null);
+
+							sourcesHtml += sources.join(" | ");
+							if (sources.length === 0) {
+								sourcesHtml += "منبع خارجی خاصی یافت نشد.";
+							}
+						} else {
+							sourcesHtml += "منبع خارجی خاصی یافت نشد.";
+						}
+						aiSources.innerHTML = sourcesHtml;
+					} else {
+						aiResultText.textContent =
+							"متأسفانه، هوش مصنوعی در حال حاضر نتوانست پیشنهادی تولید کند.";
+					}
+				} catch (error) {
+					console.error("Gemini API Error:", error);
+					aiResultText.textContent =
+						"خطا در دریافت پیشنهادهای هوش مصنوعی. لطفاً دوباره تلاش کنید.";
+				} finally {
+					aiLoading.classList.add("hidden");
+					aiReviewBtn.disabled = false;
+				}
+			}
+
+			// --- UI Setup ---
+
+			function setupUI() {
+				const catalog = document.getElementById("moduleCatalog");
+
+				MODULES.forEach((module) => {
+					const item = document.createElement("div");
+					item.className =
+						"module-item p-3 rounded-lg flex items-center bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 shadow-md";
+					item.setAttribute("data-id", module.id);
+					item.innerHTML = `
+                    <span class="text-3xl mr-3">${module.icon || "🏗️"}</span>
+                    <div class="flex-grow">
+                        <p class="font-semibold text-gray-900 dark:text-white">${
+							module.name
+						}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400" dir="ltr">${module.cost.toLocaleString(
+							"fa-IR"
+						)}$</p>
+                    </div>
+                `;
+
+					item.addEventListener("click", () => {
+						document
+							.querySelectorAll(".module-item")
+							.forEach((i) => i.classList.remove("active"));
+
+						if (selectedModuleId === module.id) {
+							destroyGhostMesh();
+							showMessage("انتخاب ماژول لغو شد.");
+						} else {
+							selectedModuleId = module.id;
+							item.classList.add("active");
+
+							createGhostMesh(module);
+
+							showMessage(
+								`ماژول ${module.name} انتخاب شد. ماوس را حرکت دهید و کلیک کنید. (کلیک راست: چرخش، Esc: لغو)`
+							);
+							hideTooltip();
+						}
+					});
+
+					catalog.appendChild(item);
+				});
+
+				// --- Theme Toggle Setup ---
+				document
+					.getElementById("themeToggleBtn")
+					.addEventListener("click", toggleTheme);
+
+				document
+					.getElementById("resetBtn")
+					.addEventListener("click", resetPlan);
+				document
+					.getElementById("aiReviewBtn")
+					.addEventListener("click", getDesignSuggestion);
+				document
+					.getElementById("rotateBtn")
+					.addEventListener("click", onRotateClick);
+				document
+					.getElementById("deleteBtn")
+					.addEventListener("click", onDeleteClick);
+
+				document
+					.getElementById("levelUpBtn")
+					.addEventListener("click", () => changeLevel(1));
+				document
+					.getElementById("levelDownBtn")
+					.addEventListener("click", () => changeLevel(-1));
+
+				document.getElementById("levelIndicator").textContent = 1;
+			}
+
+			function resetPlan() {
+				placedObjects.forEach((obj) => scene.remove(obj));
+				placedObjects = [];
+				totalCost = 0;
+				currentLevel = 0;
+				updateCostDisplay();
+				updateGridPlane();
+				showMessage("نقشه بازنشانی شد. طراحی را شروع کنید!", true);
+
+				destroyGhostMesh();
+				document.getElementById("aiResultArea").classList.add("hidden");
+				hideTooltip();
+			}
+		</script>
+	</body>
+</html>
