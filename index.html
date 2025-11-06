@@ -3,7 +3,8 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>برنامه‌ریز ماژولار ساختمان</title>
+		<link rel="icon" href="assets/images/fav.png" />
+		<title>فولاد ماشین نکا - ساختمان ماژولار</title>
 		<!-- Load and Configure Tailwind CSS (Corrected CDN) -->
 		<script src="https://cdn.tailwindcss.com"></script>
 		<link
@@ -160,7 +161,7 @@
 					<h1
 						class="text-2xl font-bold text-blue-600 dark:text-blue-400"
 					>
-						برنامه‌ریز ماژولار
+						<img src="assets/images/logo.png" />
 					</h1>
 					<button
 						id="themeToggleBtn"
@@ -177,11 +178,9 @@
 				>
 					<h2
 						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
-					>
-						معیارهای پروژه
-					</h2>
+					></h2>
 					<p class="text-sm">
-						تعداد کل ماژول‌ها:
+						تعداد کل اجراء:
 						<span
 							id="moduleCount"
 							class="font-bold text-lg text-gray-900 dark:text-white"
@@ -197,10 +196,10 @@
 							کل هزینه:
 						</p>
 						<p
-							class="text-3xl font-extrabold text-gray-900 dark:text-white"
+							class="text-2xl font-extrabold text-gray-900 dark:text-white"
 							dir="ltr"
 						>
-							<span id="totalCost">0</span>$
+							تومان <span id="totalCost">0</span>
 						</p>
 					</div>
 				</div>
@@ -213,54 +212,37 @@
 					<h2
 						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
 					>
-						کنترل سطح
+						انتخاب طبقات
 					</h2>
 					<div class="flex justify-between items-center">
 						<button
-							id="levelDownBtn"
-							class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+							id="levelUpBtn"
+							class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
 						>
-							پایین (سطح ↓)
+							بالا ↑
 						</button>
 						<p
 							class="text-xl font-extrabold text-gray-900 dark:text-white"
 						>
 							سطح
-							<span id="levelIndicator" class="text-3xl">۱</span>
+							<span id="levelIndicator" class="text-xl">۱</span>
 						</p>
 						<button
-							id="levelUpBtn"
-							class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+							id="levelDownBtn"
+							class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
 						>
-							بالا (سطح ↑)
+							پایین ↓
 						</button>
 					</div>
-					<p
-						class="text-xs mt-2 text-gray-500 dark:text-gray-400 text-center"
-					>
-						(ماژول‌های سطوح دیگر به صورت کم‌رنگ دیده می‌شوند.)
-					</p>
-				</div>
-
-				<!-- Multi-view Export Button -->
-				<div
-					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
-				>
-					<button
-						id="exportViewsBtn"
-						class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 shadow-md"
-					>
-						دریافت تصویر از ۸ جهت و بالا
-					</button>
 				</div>
 
 				<h2
 					class="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-300"
 				>
-					ماژول‌های سازه
-					<span class="text-sm text-gray-500 dark:text-gray-400"
-						>(برای انتخاب کلیک کنید)</span
-					>
+					اجزاء ساختمان
+					<span
+						class="text-sm text-gray-500 dark:text-gray-400"
+					></span>
 				</h2>
 
 				<!-- Module Catalog -->
@@ -276,8 +258,7 @@
 						id="aiReviewBtn"
 						class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						<span class="text-xl ml-2">✨</span> دریافت پیشنهادهای
-						طراحی
+						<span class="text-xl ml-2">✨</span> طراحی با هوش‌مصنوعی
 					</button>
 					<div
 						id="aiResultArea"
@@ -324,9 +305,16 @@
 					/>
 					<button
 						id="openProjectBtn"
-						class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md"
+						class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md mb-2"
 					>
 						باز کردن پروژه
+					</button>
+
+					<button
+						id="exportViewsBtn"
+						class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md mb-2"
+					>
+						خروجی تصویر
 					</button>
 				</div>
 
@@ -341,10 +329,7 @@
 					</button>
 					<p
 						class="text-xs mt-2 text-gray-500 dark:text-gray-400 text-center"
-					>
-						(از ماوس برای کشیدن/چرخاندن نمای ۳بعدی استفاده کنید.
-						برای انتخاب، کلیک کنید و برای جابجایی بکشید.)
-					</p>
+					></p>
 				</div>
 			</div>
 
@@ -406,7 +391,7 @@
 			const MODULES = [
 				{
 					id: "floor",
-					name: "دال کف (۴×۴ متر)",
+					name: "سطح کف (۴×۴ متر)",
 					color: 0x6e788c,
 					cost: 1800,
 					dimensions: {
@@ -419,7 +404,7 @@
 				},
 				{
 					id: "wall",
-					name: "دیوار استاندارد (۴ متر)",
+					name: "دیوار (۴ متر)",
 					color: WALL_COLOR,
 					cost: 1200,
 					dimensions: { x: GRID_CELL_SIZE, y: WALL_HEIGHT, z: 0.2 },
@@ -428,7 +413,7 @@
 				},
 				{
 					id: "wall_2",
-					name: "دیوار استاندارد (۲ متر)",
+					name: "دیوار (۲ متر)",
 					color: WALL_COLOR,
 					cost: 600,
 					dimensions: {
@@ -441,11 +426,24 @@
 				},
 				{
 					id: "wall_half",
-					name: "دیوار کوتاه (۲ متر)",
+					name: "دیوار کوتاه (۴ متر)",
 					color: WALL_COLOR,
 					cost: 700,
 					dimensions: {
 						x: GRID_CELL_SIZE,
+						y: WALL_HEIGHT / 2,
+						z: 0.2,
+					},
+					isRotatable: true,
+					snap: GRID_CELL_SIZE / 4, // Allow half-unit movement
+				},
+				{
+					id: "wall_half_2",
+					name: "دیوار کوتاه (۲ متر)",
+					color: WALL_COLOR,
+					cost: 700,
+					dimensions: {
+						x: GRID_CELL_SIZE / 2,
 						y: WALL_HEIGHT / 2,
 						z: 0.2,
 					},
@@ -474,7 +472,7 @@
 				},
 				{
 					id: "staircase",
-					name: "واحد پله",
+					name: "پله پیش‌ساخته",
 					color: 0x8b5cf6,
 					cost: 3000,
 					dimensions: {
@@ -488,7 +486,7 @@
 				},
 				{
 					id: "roof",
-					name: "بخش سقف (۴×۴ متر)",
+					name: "سقف (۴×۴ متر)",
 					color: 0xef4444,
 					cost: 2500,
 					dimensions: {
@@ -553,10 +551,10 @@
 				setupUI();
 				updateCostDisplay();
 
-				showMessage(
+				/* showMessage(
 					"سطوحی که در نمای فعلی نیستند، اکنون به صورت کم‌رنگ قابل مشاهده‌اند!",
 					false
-				);
+				); */
 			};
 
 			/**
@@ -851,7 +849,7 @@
 
 			function changeLevel(delta) {
 				const newLevel = Math.max(0, currentLevel + delta);
-				const MAX_LEVEL = 4;
+				const MAX_LEVEL = 5;
 
 				if (newLevel !== currentLevel && newLevel <= MAX_LEVEL) {
 					currentLevel = newLevel;
@@ -861,7 +859,7 @@
 				} else if (newLevel === 0 && delta < 0) {
 					showMessage(`شما در حال حاضر در طبقه همکف هستید (سطح ۱).`);
 				} else if (newLevel > MAX_LEVEL) {
-					showMessage(`حداکثر سطح ${MAX_LEVEL + 1} رسیده است.`);
+					showMessage(`حداکثر سطح`);
 				}
 			}
 
@@ -1505,6 +1503,8 @@
 					"wall",
 					"wall_2",
 					"wall_half",
+					"wall_half_2",
+
 					"wall_door",
 					"wall_window",
 					"staircase",
@@ -1606,6 +1606,8 @@
 									"wall",
 									"wall_2",
 									"wall_half",
+									"wall_half_2",
+
 									"wall_door",
 									"wall_window",
 									"staircase",
@@ -1670,6 +1672,8 @@
 									"wall",
 									"wall_2",
 									"wall_half",
+									"wall_half_2",
+
 									"wall_door",
 									"wall_window",
 									"staircase",
@@ -1721,7 +1725,7 @@
 							currentLevel + 1
 						} قرار داده شد! هزینه: ${moduleConfig.cost.toLocaleString(
 							"fa-IR"
-						)}$`,
+						)} تومان`,
 						false
 					);
 
@@ -1780,7 +1784,7 @@
 						showMessage("قرار دادن ماژول لغو شد.", true);
 					} else if (selectedMesh) {
 						hideTooltip();
-						showMessage("انتخاب شی موجود لغو شد.", true);
+						showMessage("انتخاب لغو شد.", true);
 					}
 				}
 			}
