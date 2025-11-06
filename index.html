@@ -25,6 +25,8 @@
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 		<!-- Load OrbitControls for 3D camera control -->
 		<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+		<!-- Load Tree.js for image export -->
+		<script src="https://unpkg.com/merge-images"></script>
 		<style>
 			/* Custom styles for full screen */
 			body,
@@ -229,6 +231,18 @@
 					>
 						(ماژول‌های سطوح دیگر به صورت کم‌رنگ دیده می‌شوند.)
 					</p>
+				</div>
+
+				<!-- Multi-view Export Button -->
+				<div
+					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
+				>
+					<button
+						id="exportViewsBtn"
+						class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 shadow-md"
+					>
+						دریافت تصویر از ۸ جهت و بالا
+					</button>
 				</div>
 
 				<h2
@@ -2070,6 +2084,111 @@
 				};
 				reader.readAsText(file);
 			};
+
+			// Multi-view export functionality
+			document.getElementById("exportViewsBtn").onclick =
+				async function () {
+					// Store original camera position and controls
+					const originalPosition = camera.position.clone();
+					const originalRotation = camera.rotation.clone();
+					const controlsEnabled = controls.enabled;
+					controls.enabled = false;
+
+					// Set up canvas for final image
+					const canvas = document.createElement("canvas");
+					canvas.width = 3000; // Large enough for 3x3 grid
+					canvas.height = 3000;
+					const ctx = canvas.getContext("2d");
+					ctx.fillStyle = "white";
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+					// Define camera positions for 8 sides + top view
+					const views = [
+						{ pos: { x: 50, y: 30, z: 0 }, name: "Front" }, // Front
+						{
+							pos: { x: 35.35, y: 30, z: 35.35 },
+							name: "Front-Right",
+						}, // Front-Right
+						{ pos: { x: 0, y: 30, z: 50 }, name: "Right" }, // Right
+						{
+							pos: { x: -35.35, y: 30, z: 35.35 },
+							name: "Back-Right",
+						}, // Back-Right
+						{ pos: { x: -50, y: 30, z: 0 }, name: "Back" }, // Back
+						{
+							pos: { x: -35.35, y: 30, z: -35.35 },
+							name: "Back-Left",
+						}, // Back-Left
+						{ pos: { x: 0, y: 30, z: -50 }, name: "Left" }, // Left
+						{
+							pos: { x: 35.35, y: 30, z: -35.35 },
+							name: "Front-Left",
+						}, // Front-Left
+						{ pos: { x: 0, y: 100, z: 0 }, name: "Top" }, // Top
+					];
+
+					// Function to capture view from a specific position
+					const captureView = async (
+						position,
+						lookAt = { x: 0, y: 0, z: 0 }
+					) => {
+						camera.position.set(position.x, position.y, position.z);
+						camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+						renderer.render(scene, camera);
+						return renderer.domElement.toDataURL("image/jpeg");
+					};
+
+					try {
+						// Capture all views
+						const images = [];
+						for (let i = 0; i < views.length; i++) {
+							const view = views[i];
+							const imageUrl = await captureView(view.pos);
+							const img = new Image();
+							await new Promise((resolve, reject) => {
+								img.onload = resolve;
+								img.onerror = reject;
+								img.src = imageUrl;
+							});
+
+							// Calculate position in the 3x3 grid
+							const gridSize = canvas.width / 3;
+							const x = (i % 3) * gridSize;
+							const y = Math.floor(i / 3) * gridSize;
+
+							// Draw the image
+							ctx.drawImage(img, x, y, gridSize, gridSize);
+
+							// Add label
+							ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+							ctx.fillRect(x + 10, y + 10, 100, 30);
+							ctx.fillStyle = "white";
+							ctx.font = "bold 20px Arial";
+							ctx.fillText(view.name, x + 20, y + 30);
+						}
+
+						// Save the final composite image
+						const link = document.createElement("a");
+						link.download = "building-views.jpg";
+						link.href = canvas.toDataURL("image/jpeg", 0.8);
+						link.click();
+
+						// Restore camera and controls
+						camera.position.copy(originalPosition);
+						camera.rotation.copy(originalRotation);
+						controls.enabled = controlsEnabled;
+						renderer.render(scene, camera);
+						showMessage("تصاویر با موفقیت ذخیره شدند.");
+					} catch (error) {
+						console.error("Error generating views:", error);
+						showMessage("خطا در ایجاد تصاویر!", true);
+						// Restore camera and controls
+						camera.position.copy(originalPosition);
+						camera.rotation.copy(originalRotation);
+						controls.enabled = controlsEnabled;
+						renderer.render(scene, camera);
+					}
+				};
 		</script>
 	</body>
 </html>
