@@ -177,35 +177,119 @@
 					</button>
 				</div>
 
-				<!-- Cost and Stats Display -->
 				<div
 					id="calculator"
 					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
 				>
 					<h2
 						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
-					></h2>
-					<p class="text-sm">
-						تعداد کل اجراء:
-						<span
-							id="moduleCount"
-							class="font-bold text-lg text-gray-900 dark:text-white"
-							>0</span
-						>
-					</p>
+					>
+						برآورد هزینه
+					</h2>
+
 					<div
 						class="mt-4 pt-3 border-t border-gray-300 dark:border-gray-600"
 					>
 						<p
-							class="text-lg font-bold text-green-600 dark:text-green-400"
+							class="text-sm font-bold text-green-600 dark:text-green-400"
 						>
-							کل هزینه:
+							ساختمان ماژولار با فولاد ماشین:
 						</p>
 						<p
-							class="text-2xl font-extrabold text-gray-900 dark:text-white"
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
 							dir="ltr"
 						>
 							تومان <span id="totalCost">0</span>
+						</p>
+
+						<p
+							class="text-sm font-bold text-green-600 dark:text-red-400"
+						>
+							ساختمان غیر ماژولار:
+						</p>
+						<p
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							تومان <span id="totalCost-non-modular">-</span>
+						</p>
+					</div>
+				</div>
+
+				<div
+					id="calculator"
+					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
+				>
+					<h2
+						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
+					>
+						مدت زمان ساخت
+					</h2>
+
+					<div
+						class="mt-4 pt-3 border-t border-gray-300 dark:border-gray-600"
+					>
+						<p
+							class="text-sm font-bold text-green-600 dark:text-green-400"
+						>
+							ساختمان ماژولار با فولاد ماشین:
+						</p>
+						<p
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							ماه <span id="totalTime">-</span>
+						</p>
+
+						<p
+							class="text-sm font-bold text-green-600 dark:text-red-400"
+						>
+							ساختمان غیر ماژولار:
+						</p>
+						<p
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							ماه <span id="totalTime-non-modular">-</span>
+						</p>
+					</div>
+				</div>
+
+				<div
+					id="calculator"
+					class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 shadow-xl border border-gray-200 dark:border-gray-600"
+				>
+					<h2
+						class="text-xl font-semibold mb-3 text-blue-600 dark:text-blue-300"
+					>
+						مقاومت در برابر زلزله
+					</h2>
+
+					<div
+						class="mt-4 pt-3 border-t border-gray-300 dark:border-gray-600"
+					>
+						<p
+							class="text-sm font-bold text-green-600 dark:text-green-400"
+						>
+							ساختمان ماژولار:
+						</p>
+						<p
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							<span id="totalZelzele">-</span>
+						</p>
+
+						<p
+							class="text-sm font-bold text-green-600 dark:text-red-400"
+						>
+							ساختمان غیر ماژولار:
+						</p>
+						<p
+							class="text-lg font-extrabold text-gray-900 dark:text-white"
+							dir="ltr"
+						>
+							<span id="totalZelzele-non-modular">-</span>
 						</p>
 					</div>
 				</div>
@@ -775,8 +859,8 @@
 			}
 
 			function updateCostDisplay() {
-				document.getElementById("moduleCount").textContent =
-					placedObjects.length;
+				/*document.getElementById("moduleCount").textContent =
+					placedObjects.length;*/
 				document.getElementById("totalCost").textContent =
 					totalCost.toLocaleString("fa-IR", {
 						minimumFractionDigits: 0,
@@ -1740,7 +1824,7 @@
 						false
 					);
 
-					destroyGhostMesh();
+					//destroyGhostMesh();
 					return;
 				}
 
@@ -1817,7 +1901,7 @@
 					currentLevel + 1
 				} با کل هزینه ${totalCost.toLocaleString(
 					"fa-IR"
-				)} دلار است و شامل ماژول‌های فولادی زیر است:\n`;
+				)} تومان است و شامل ماژول‌های فولادی زیر است:\n`;
 
 				Object.keys(counts).forEach((id) => {
 					const module = MODULES.find((m) => m.id === id);
@@ -1826,7 +1910,7 @@
 							module.name
 						} (هزینه واحد: ${module.cost.toLocaleString(
 							"fa-IR"
-						)}$)\n`;
+						)} تومان)\n`;
 					}
 				});
 
@@ -1967,7 +2051,7 @@
 						}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400" dir="ltr">${module.cost.toLocaleString(
 							"fa-IR"
-						)}$</p>
+						)} تومان</p>
                     </div>
                 `;
 
